@@ -22,10 +22,9 @@ do
 
 		-- hack: frame is an file descriptor
 		local header = framepointer:read(4)
-		local expectGOP0 = "\000\000\001\182"
-		local expectGOP1 = "\000\000\001\184"
-		local expectX0 = "\000\000\001\179"
-		if header == expectGOP0 or header == expectGOP1 then
+		local expectVOP = "\000\000\001\182"
+		local expectGOP = "\000\000\001\179"
+		if header == expectVOP then
 			local frametype = convertToSize(framepointer:read(1))
 			frametype = bit.blogic_rshift(frametype, 6)
 			if frametype == 0 then
@@ -41,8 +40,8 @@ do
 				result.description = "  S frame"
 			end
 		else
-			if header == expectX0 then
-				result.description = " Video header"
+			if header == expectGOP then
+				result.description = " GOP header"
 			end
 		end
 		self.source:close()
