@@ -56,13 +56,5 @@ do
 		return result
 	end
 
-	function avc:getFrames()
-		local currentSample = 0
-		return function()
-			currentSample = currentSample + 1
-			return self:read(currentSample)
-		end
-	end
-
 	return avc
 end

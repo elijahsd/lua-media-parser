@@ -20,8 +20,11 @@ function mediaSource:read() end
 function mediaSource:seek() end
 
 function mediaSource:getFrames()
-	logw("dummy getFrames")
-	return function() end
+	local currentSample = 0
+	return function()
+		currentSample = currentSample + 1
+		return self:read(currentSample)
+	end
 end
 
 function mediaSource:parse()

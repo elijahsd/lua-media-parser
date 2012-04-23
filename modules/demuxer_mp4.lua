@@ -80,9 +80,22 @@ do
 				self.source:seek(8) -- go to mp4v/avc1
 				parsed = true
 			end
+			if atom == "esds" then
+				--[[
+				self.content = ""
+				self.source:seek(4)
+				local esdsType = convertToSize(self.source:read(1))
+				if (esdsType == 0x03) then
+					
+				end
+				parsed = true
+				]]--
+			end
 			if atom == "mp4v" then
 				self.content = "mpeg4"
 				sampleTableParsing = true
+				self.source:seek(78)
+				parsed = true
 			end
 			if atom == "avc1" then
 				self.content = "avc"
