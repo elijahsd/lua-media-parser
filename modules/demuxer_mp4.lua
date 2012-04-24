@@ -81,15 +81,58 @@ do
 				parsed = true
 			end
 			if atom == "esds" then
-				--[[
-				self.content = ""
-				self.source:seek(4)
+				self.source:seek(4) -- version and flags
+				local offset = 8 + 4
 				local esdsType = convertToSize(self.source:read(1))
+				offset = offset + 1
 				if (esdsType == 0x03) then
-					
+					local nextByte
+					repeat
+						nextByte = convertToSize(self.source:read(1))
+						offset = offset + 1
+					until bit.band(nextByte, 0x80)
+					self.source:seek(2) -- skip ID
+					offset = offset + 2
+
+					local esFlags = convertToSize(self.source:read(1))
+					offset = offset + 1
+					local streamDependenceFlag = bit.band(esFlags, 0x80)
+					local urlFlag = bit.band(esFlags, 0x40)
+					local OCRStreamFlag = bit.band(esFlags, 0x20)
+
+					if streamDependenceFlag ~= 0 then
+						self.source:seek(2)
+						offset = offset + 2
+					end
+
+					if urlFlag ~= 0 then
+						local urlLength = convertToSize(self.source:read(4))
+						self.source:seek(urlLength + 1)
+						offset = offset + urlLength + 1 + 4
+					end
+
+					if OCRStreamFlag ~= 0 then
+						self.source:seek(2)
+						offset = offset + 2
+					end
+
+					esdsType = convertToSize(self.source:read(1))
+					offset = offset + 1
 				end
+				if (esdsType == 0x04) then
+					repeat
+						nextByte = convertToSize(self.source:read(1))
+						offset = offset + 1
+					until bit.band(nextByte, 0x80)
+					local objTypeID = convertToSize(self.source:read(1))
+					offset = offset + 1
+					if objTypeID >= 0x60 and objTypeID <= 0x65 then
+						self.content = "mpeg2"
+					end
+				end
+				
+				self.source:seek(size - offset)
 				parsed = true
-				]]--
 			end
 			if atom == "mp4v" then
 				self.content = "mpeg4"
