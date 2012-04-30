@@ -34,7 +34,7 @@ do
 			if frametype == 24 then
 				result.description = "  B frame"
 			end
-			if frametype == 64 then
+			if frametype == 32 then
 				result.description = "  D frame"
 			end
 		else
