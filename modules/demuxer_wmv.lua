@@ -22,20 +22,33 @@ do
 	end
 
 	function wmv:parseChunk(level)
+		local parsed = false
 		-- 16 bytes is a GUID
 		local guid = self.source:read(16)
 		if not guid then
 			return false
 		end
-		print(GUIDTypes[guid])
+
 		-- 8 bytes size in le
 		local sizeStr = ""
 		for val = 1,8 do
 			sizeStr = self.source:read(1) .. sizeStr
 		end
 		local size = convertToSize(sizeStr)
-		print(size)
+
+		print(tostring(GUIDTypes[guid]) .. " : " .. size)
+
+		if GUIDTypes[guid] == "data" then
+			self.source:seek(26)
+			-- packets
+
+			self.source:seek(size - 50)
+			parsed = true
+		end
+
+		if not parsed then
 		self.source:seek(size - 24)
+		end
 		return self:parseChunk(level)
 	end
 
