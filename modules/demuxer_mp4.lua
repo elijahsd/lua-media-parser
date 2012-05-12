@@ -8,6 +8,8 @@ do
 	local mp4 = {
 		sampleTable = {
 			sampleSizes = {},
+			sampleTimes = {},
+			sampleDeltaTimes = {},
 			chunks = {},
 			chunkOffsets = {},
 		}
@@ -23,6 +25,7 @@ do
 			local samples = 0
 			local currentChunk = 0
 			local samplesInCurrentChunk = 0
+			local extradata = ""
 			while samples < sample do
 				-- get samples for current chunk
 				currentChunk = currentChunk + 1
@@ -51,7 +54,14 @@ do
 			if verbose >= 2 then
 				logi("offset :" .. tostring(fullOffset))
 			end
-			return self.source.fh
+			extradata = " "
+				.. (self.sampleTable.sampleTimes[sample] or "undefined")
+				.. " + "
+				.. (self.sampleTable.sampleDeltaTimes[sample] or "0")
+				.. " usec "
+				.. self.sampleTable.sampleSizes[sample]
+				.. " bytes "
+			return self.source.fh, extradata
 		end
 	end
 
@@ -188,6 +198,21 @@ do
 							offset = convertToSize(self.source:read(8))
 						end
 						self.sampleTable.chunkOffsets[var] = offset
+					end
+					parsed = true
+				end
+				if atom == "stts" then
+					self.source:seek(4)
+					local entries = convertToSize(self.source:read(4))
+					local currentTime = 0
+					for var = 1, entries do
+						local samplesCount = convertToSize(self.source:read(4))
+						local samplesDuration = convertToSize(self.source:read(4))
+						local sampleDuration = math.floor(1000000*samplesCount/samplesDuration)
+						for s = 1, samplesCount do
+							self.sampleTable.sampleTimes[s] = currentTime
+							currentTime = currentTime + sampleDuration
+						end
 					end
 					parsed = true
 				end

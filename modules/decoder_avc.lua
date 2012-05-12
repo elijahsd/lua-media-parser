@@ -14,7 +14,8 @@ do
 		result.description = "No data"
 
 		self.source:open()
-		framepointer = self.source:read(sample)
+		local extradata = ""
+		framepointer, extradata = self.source:read(sample)
 		if not framepointer then
 			self.source:close()
 			return nil
@@ -51,6 +52,9 @@ do
 				or golomb == 6 then
 				result.description = "B frame"
 			end
+		end
+		if extradata then
+			result.description = result.description .. extradata
 		end
 		self.source:close()
 		return result

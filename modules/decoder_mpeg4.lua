@@ -14,13 +14,14 @@ do
 		result.description = "-------"
 
 		self.source:open()
-		framepointer = self.source:read(sample)
+		local extradata = ""
+		framepointer, extradata = self.source:read(sample)
 		if not framepointer then
 			self.source:close()
 			return nil
 		end
 
-		-- hack: frame is an file descriptor
+		-- hack: framepointer is an file descriptor
 		local header = framepointer:read(4)
 		local expectVOP = "\000\000\001\182"
 		local expectGOP = "\000\000\001\179"
@@ -38,6 +39,9 @@ do
 			end
 			if frametype == 3 then
 				result.description = "  S frame"
+			end
+			if extradata then
+				result.description = result.description .. extradata
 			end
 		else
 			if header == expectGOP then
