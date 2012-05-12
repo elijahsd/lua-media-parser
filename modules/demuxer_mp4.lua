@@ -55,7 +55,9 @@ do
 				logi("offset :" .. tostring(fullOffset))
 			end
 			extradata = " "
-				.. (self.sampleTable.sampleTimes[sample] or "undefined")
+				.. (self.sampleTable.sampleTimes[sample]
+					and math.floor(self.sampleTable.sampleTimes[sample])
+					or "undefined")
 				.. " + "
 				.. (self.sampleTable.sampleDeltaTimes[sample] or "0")
 				.. " usec "
@@ -86,6 +88,12 @@ do
 			and atom ~= "stbl" then
 
 			local parsed = false
+			if atom == "mdhd" then
+				self.source:seek(12)
+				self.timescale = convertToSize(self.source:read(4))
+				self.source:seek(8)
+				parsed = true
+			end
 			if atom == "stsd" then
 				self.source:seek(8) -- go to mp4v/avc1
 				parsed = true
@@ -100,7 +108,7 @@ do
 					repeat
 						nextByte = convertToSize(self.source:read(1))
 						offset = offset + 1
-					until bit.band(nextByte, 0x80)
+					until bit.band(nextByte, 0x80) == 0
 					self.source:seek(2) -- skip ID
 					offset = offset + 2
 
@@ -133,7 +141,7 @@ do
 					repeat
 						nextByte = convertToSize(self.source:read(1))
 						offset = offset + 1
-					until bit.band(nextByte, 0x80)
+					until bit.band(nextByte, 0x80) == 0
 					local objTypeID = convertToSize(self.source:read(1))
 					offset = offset + 1
 					if objTypeID >= 0x60 and objTypeID <= 0x65 then
@@ -208,7 +216,7 @@ do
 					for var = 1, entries do
 						local samplesCount = convertToSize(self.source:read(4))
 						local samplesDuration = convertToSize(self.source:read(4))
-						local sampleDuration = math.floor(1000000*samplesCount/samplesDuration)
+						local sampleDuration = samplesDuration*1000000/self.timescale
 						for s = 1, samplesCount do
 							self.sampleTable.sampleTimes[s] = currentTime
 							currentTime = currentTime + sampleDuration
