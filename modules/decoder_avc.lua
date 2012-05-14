@@ -4,6 +4,8 @@ require 'include/ftyp'
 do
 	local avc = {}
 
+	local bitreader = dofile("include/bitreader.lua")
+
 	function avc:parse()
 		self.level = 0
 	end
@@ -26,12 +28,11 @@ do
 		local nalType = convertToSize(framepointer:read(1))
 		nalType = bit.band(nalType, 0x1F)
 		if nalType >= 1 and nalType <= 5 then
-			local bitreader = dofile("include/bitreader.lua")
 			local state = {
 				fh = framepointer,
 				data = "",
 				i = 1,
-				bit = 8,
+				bit = 7,
 			}
 			state.data = framepointer:read(1)
 			bitreader.get_ue_golomb(state)
