@@ -35,17 +35,7 @@ do
 		self.source:close()
 	end
 
-	function wmv:parseChunk(level, objectsLeft)
-		--[[
-			maximum two levels
-			if necessary more the objectsLeft values
-			for every level must be saved outside the function
-		]]--
-		if objectsLeft == 0 then
-			objectsLeft = nil
-			level = level - 1
-		end
-		
+	function wmv:parseChunk(level, recursive)
 		local parsed = false
 		-- 16 bytes is a GUID
 		local guid = self.source:read(16)
@@ -57,7 +47,7 @@ do
 		local size = self:getBytes(8)
 
 		if verbose >= 2 then
-			print(tostring(GUIDTypes[guid]) .. " : " .. size)
+			print(tostring(GUIDTypes[guid]) .. " : " .. tostring(level) .. " : " .. size)
 		end
 
 		if GUIDTypes[guid] == "data"
@@ -77,23 +67,25 @@ do
 			local objectsNumber = self:getBytes(4)
 			self.source:seek(2)
 			local offset = 30
-			return self:parseChunk(level + 1, objectsNumber)
---			for var = 1,objectsNumber do
---				self:parseChunk(level + 1)
---			end
---			parsed = true
+			for var = 1,objectsNumber do
+				self:parseChunk(level + 1, false)
+			end
+			parsed = true
 		end
 
 		if not parsed then
 			self.source:seek(size - 24)
 		end
-		return self:parseChunk(level, objectsLeft and objectsLeft - 1)
+
+		if recursive then
+			return self:parseChunk(level, true)
+		end
 	end
 
 	function wmv:parse()
 		self.level = 1
 		self.source:open()
-		self:parseChunk(0)
+		self:parseChunk(0, true)
 		self.source:close()
 	end
 
