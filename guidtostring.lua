@@ -2,7 +2,6 @@
 require 'include/hex'
 
 local guids = {
-	
 }
 
 for i,v in ipairs(guids) do

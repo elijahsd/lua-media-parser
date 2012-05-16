@@ -1,7 +1,9 @@
 require 'include/ftyp'
 
 do
-	local wmv = {}
+	local wmv = {
+		streams = {},
+	}
 
 	local GUIDTypes = {
 		-- top GUIDs
@@ -28,6 +30,14 @@ do
 		["\020\230\138\041\034\038\023\076\185\053\218\224\126\233\040\156"] = "extended content encryption",
 		["\252\179\017\034\035\189\210\017\180\183\000\160\201\085\252\110"] = "digital signature",
 		["\116\212\006\024\223\202\009\069\164\186\154\171\203\150\170\232"] = "padding",
+		-- stream type GUIDs
+		["\064\158\105\248\077\091\207\017\168\253\000\128\095\092\068\043"] = "audio",
+		["\192\239\025\188\077\091\207\017\168\253\000\128\095\092\068\043"] = "video",
+		["\192\207\218\089\230\089\208\017\163\172\000\160\201\003\072\246"] = "command",
+		["\000\225\027\182\078\091\207\017\168\253\000\128\095\092\068\043"] = "jfif",
+		["\224\125\144\053\021\228\207\017\169\023\000\128\095\092\068\043"] = "degradable jpeg",
+		["\044\034\189\145\028\242\122\073\139\109\090\168\107\252\001\133"] = "file transfer",
+		["\226\101\251\058\239\071\242\064\172\044\112\169\013\113\211\067"] = "binary",
 	}
 
 	function wmv:read(sample)
@@ -88,7 +98,32 @@ do
 		end
 
 		if level == 1 then
-			
+			if GUIDTypes[guid] == "stream properties" then
+				local streamType = self.source:read(16)
+				self.source:seek(32)
+
+				local flags = self:getBytes(2)
+				local streamNumber = bit.band(flags, 0x7F)
+
+				if verbose >= 1 then
+					print("stream type = " .. GUIDTypes[streamType] .. " : " .. tostring(streamNumber))
+				end
+
+				self.streams[
+					GUIDTypes[streamType]
+					] = streamNumber
+
+				self.source:seek(size - 74)
+				parsed = true
+			end
+			if GUIDTypes[guid] == "codec list" then
+				self.source:seek(16)
+				
+				
+				
+				self.source:seek(size - 40)
+				parsed = true
+			end
 		end
 
 		if not parsed then
