@@ -223,17 +223,20 @@ do
 							local mediaObjectNumber = self:getBytes(mediaObjectNumberLengthType)
 							local offsetIntoMediaObject = self:getBytes(offsetIntoMediaObjectLengthType)
 							local replicatedDataLength = self:getBytes(replicatedDataLengthType)
+							local presentationTime = 0
 
 							-- replicated data
-							self.source:seek(replicatedDataLength)
 							if replicatedDataLength == 1 then
 								compressedPayload = true
 							end
 
-							-- payload data
-							if streamNumber == self.streams.video then
-								-- GET DATA HERE
-								
+							if compressedPayload then
+								presentationTime = offsetIntoMediaObject
+								local presentationTimeDelta = self:getBytes(1)
+								offset = offset + 1
+							else
+								self.source:seek(replicatedDataLength)
+								offset = offset + replicatedDataLength
 							end
 
 							offset = offset
@@ -241,7 +244,23 @@ do
 								+ mediaObjectNumberLengthType
 								+ offsetIntoMediaObjectLengthType
 								+ replicatedDataLengthType
-								+ replicatedDataLength
+
+							-- payload data
+							if compressedPayload then
+								local subOffset = 0
+								while subOffset < (packetLength - offset - paddingLength) do
+									local subPayloadData = self:getBytes(1)
+									subOffset = subOffset + 1
+									-- GET DATA HERE
+									
+									self.source:seek(subPayloadData)
+									subOffset = subOffset + subPayloadData
+								end
+								offset = offset + subOffset
+							else
+								-- GET DATA HERE
+								
+							end
 
 							if streamNumber == self.streams.video
 								and verbose >= 2 then
