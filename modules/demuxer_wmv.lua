@@ -121,10 +121,10 @@ do
 						local sequence = self:getBytes(sequenceSizeType)
 						local paddingLength = self:getBytes(paddingSizeType)
 
-						local replicatedDataLengthType = bit.band(lengthTypeFlags, 0x03)
-						local offsetIntoMediaObjectLengthType = bit.blogic_rshift(bit.band(lengthTypeFlags, 0x0C), 2)
-						local mediaObjectNumberLengthType = bit.blogic_rshift(bit.band(lengthTypeFlags, 0x30), 4)
-						local streamNumberLengthType = bit.blogic_rshift(bit.band(lengthTypeFlags, 0xC0), 6)
+						local replicatedDataLengthType = bit.band(propertyFlags, 0x03)
+						local offsetIntoMediaObjectLengthType = bit.blogic_rshift(bit.band(propertyFlags, 0x0C), 2)
+						local mediaObjectNumberLengthType = bit.blogic_rshift(bit.band(propertyFlags, 0x30), 4)
+						local streamNumberLengthType = bit.blogic_rshift(bit.band(propertyFlags, 0xC0), 6)
 						replicatedDataLengthType = replicatedDataLengthType == 3
 							and 4 or replicatedDataLengthType
 						offsetIntoMediaObjectLengthType = offsetIntoMediaObjectLengthType == 3
@@ -149,8 +149,74 @@ do
 								packetLength = self.minPacket
 							end
 
+						local compressedPayload = false
 						if multiple then
-							logw("multiple payloads not implemented")
+							local payloadFlags = self:getBytes(1)
+							local payloadsNumber = bit.band(payloadFlags, 0x3F)
+							local payloadLengthType = bit.blogic_rshift(bit.band(payloadFlags, 0xC0), 6)
+							payloadLengthType = payloadLengthType == 3
+								and 4 or payloadLengthType
+							offset = offset + 1
+
+							for payloads = 1, payloadsNumber do
+								local streamNumber = self:getBytes(1)
+								streamNumber = bit.band(streamNumber, 0x7F)
+								local mediaObjectNumber = self:getBytes(mediaObjectNumberLengthType)
+								local offsetIntoMediaObject = self:getBytes(offsetIntoMediaObjectLengthType)
+								local replicatedDataLength = self:getBytes(replicatedDataLengthType)
+								local presentationTime = 0
+
+								-- replicated data
+								if replicatedDataLength == 1 then
+									compressedPayload = true
+								end
+
+								if compressedPayload then
+									presentationTime = offsetIntoMediaObject
+									local presentationTimeDelta = self:getBytes(1)
+									offset = offset + 1
+								else
+									self.source:seek(replicatedDataLength)
+									offset = offset + replicatedDataLength
+								end
+
+								local payloadLength = self:getBytes(payloadLengthType)
+
+								-- payload data
+								if compressedPayload then
+									local subOffset = 0
+									while subOffset < payloadLength do
+										local subPayloadData = self:getBytes(1)
+										subOffset = subOffset + 1
+										-- GET DATA HERE
+										
+										self.source:seek(subPayloadData)
+										subOffset = subOffset + subPayloadData
+									end
+								else
+									-- GET DATA HERE
+									
+									self.source:seek(payloadLength)
+								end
+
+								if streamNumber == self.streams.video
+									and verbose >= 2 then
+									print("packet size : "
+										.. tostring(packetLength)
+										.. " payload data size : "
+										.. tostring(payloadLength)
+										.. " compressed : "
+										.. tostring(compressedPayload))
+								end
+
+								offset = offset
+									+ 1
+									+ mediaObjectNumberLengthType
+									+ offsetIntoMediaObjectLengthType
+									+ replicatedDataLengthType
+									+ payloadLengthType
+									+ payloadLength
+							end
 						else
 							local streamNumber = self:getBytes(1)
 							streamNumber = bit.band(streamNumber, 0x7F)
@@ -160,9 +226,13 @@ do
 
 							-- replicated data
 							self.source:seek(replicatedDataLength)
+							if replicatedDataLength == 1 then
+								compressedPayload = true
+							end
 
 							-- payload data
 							if streamNumber == self.streams.video then
+								-- GET DATA HERE
 								
 							end
 
@@ -175,7 +245,12 @@ do
 
 							if streamNumber == self.streams.video
 								and verbose >= 2 then
-								print("payload data size : " .. tostring(packetLength - offset - replicatedDataLength))
+								print("packet size : "
+									.. tostring(packetLength)
+									.. " payload data size : "
+									.. tostring(packetLength - offset - replicatedDataLength)
+									.. " compressed : "
+									.. tostring(compressedPayload))
 							end
 						end
 						self.source:seek(packetLength - offset)
