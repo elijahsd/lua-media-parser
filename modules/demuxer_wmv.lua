@@ -92,7 +92,6 @@ do
 				for val = 1, packetsNumber do
 					-- error correction
 					local flags = self:getBytes(1)
-					print("flags : " .. tostring(flags))
 					local errorCorrectionDataLength = 0
 					if bit.band(flags, 0x80) == 0x80 then
 						-- error correction present
@@ -155,7 +154,6 @@ do
 						else
 							local streamNumber = self:getBytes(1)
 							streamNumber = bit.band(streamNumber, 0x7F)
-							print("stream : " .. tostring(streamNumber))
 							local mediaObjectNumber = self:getBytes(mediaObjectNumberLengthType)
 							local offsetIntoMediaObject = self:getBytes(offsetIntoMediaObjectLengthType)
 							local replicatedDataLength = self:getBytes(replicatedDataLengthType)
@@ -164,17 +162,26 @@ do
 							self.source:seek(replicatedDataLength)
 
 							-- payload data
-							
+							if streamNumber == self.streams.video then
+								
+							end
+
 							offset = offset
 								+ 1
 								+ mediaObjectNumberLengthType
 								+ offsetIntoMediaObjectLengthType
 								+ replicatedDataLengthType
 								+ replicatedDataLength
+
+							if streamNumber == self.streams.video
+								and verbose >= 2 then
+								print("payload data size : " .. tostring(packetLength - offset - replicatedDataLength))
+							end
 						end
 						self.source:seek(packetLength - offset)
 					else
 						loge("opaque data")
+						return false
 					end
 				end
 				parsed = true
