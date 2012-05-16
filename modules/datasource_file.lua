@@ -14,7 +14,7 @@ do
 	end
 
 	function file:read(bytes)
-		if self.fh then
+		if self.fh and bytes ~= 0  then
 			return self.fh:read(bytes)
 		end
 	end

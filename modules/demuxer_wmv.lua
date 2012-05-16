@@ -3,7 +3,10 @@ require 'include/ftyp'
 do
 	local wmv = {
 		streams = {},
+		codecs = {},
 	}
+
+	local codecTypes = {"video", "audio"}
 
 	local GUIDTypes = {
 		-- top GUIDs
@@ -45,6 +48,9 @@ do
 	end
 
 	function wmv:getBytes(bytes)
+		if bytes == 0 then
+			return 0
+		end
 		local numStr = ""
 		for val = 1,bytes do
 			numStr = self.source:read(1) .. numStr
@@ -81,9 +87,96 @@ do
 				-- packets size
 				local packetsNumber = self:getBytes(8)
 				self.source:seek(2)
-			
 
-				self.source:seek(size - 50)
+				-- parse the packet:
+				for val = 1, packetsNumber do
+					-- error correction
+					local flags = self:getBytes(1)
+					print("flags : " .. tostring(flags))
+					local errorCorrectionDataLength = 0
+					if bit.band(flags, 0x80) == 0x80 then
+						-- error correction present
+						errorCorrectionDataLength = bit.band(flags, 0x0F)
+						self.source:seek(errorCorrectionDataLength)
+					end
+
+					if bit.band(flags, 0x10) == 0 then
+						-- opaque data not present
+						local multiple = false
+						local lengthTypeFlags = self:getBytes(1)
+						local propertyFlags = self:getBytes(1)
+						if bit.band(lengthTypeFlags, 0x01) == 0x01 then
+							multiple = true
+						end
+
+						local sequenceSizeType = bit.blogic_rshift(bit.band(lengthTypeFlags, 0x06), 1)
+						local paddingSizeType = bit.blogic_rshift(bit.band(lengthTypeFlags, 0x18), 3)
+						local packetSizeType = bit.blogic_rshift(bit.band(lengthTypeFlags, 0x60), 5)
+						sequenceSizeType = sequenceSizeType == 3
+							and 4 or sequenceSizeType
+						paddingSizeType = paddingSizeType == 3
+							and 4 or paddingSizeType
+						packetSizeType = packetSizeType == 3
+							and 4 or packetSizeType
+						local packetLength = self:getBytes(packetSizeType)
+						local sequence = self:getBytes(sequenceSizeType)
+						local paddingLength = self:getBytes(paddingSizeType)
+
+						local replicatedDataLengthType = bit.band(lengthTypeFlags, 0x03)
+						local offsetIntoMediaObjectLengthType = bit.blogic_rshift(bit.band(lengthTypeFlags, 0x0C), 2)
+						local mediaObjectNumberLengthType = bit.blogic_rshift(bit.band(lengthTypeFlags, 0x30), 4)
+						local streamNumberLengthType = bit.blogic_rshift(bit.band(lengthTypeFlags, 0xC0), 6)
+						replicatedDataLengthType = replicatedDataLengthType == 3
+							and 4 or replicatedDataLengthType
+						offsetIntoMediaObjectLengthType = offsetIntoMediaObjectLengthType == 3
+							and 4 or offsetIntoMediaObjectLengthType
+						mediaObjectNumberLengthType = mediaObjectNumberLengthType == 3
+							and 4 or mediaObjectNumberLengthType
+						streamNumberLengthType = streamNumberLengthType == 3
+							and 4 or streamNumberLengthType
+
+						local sendTime = self:getBytes(4)
+						local duration = self:getBytes(2)
+
+						-- start payload data
+						local offset = 1
+							+ errorCorrectionDataLength
+							+ 2
+							+ packetSizeType
+							+ sequenceSizeType
+							+ paddingSizeType
+							+ 4 + 2
+							if packetLength == 0 then
+								packetLength = self.minPacket
+							end
+
+						if multiple then
+							logw("multiple payloads not implemented")
+						else
+							local streamNumber = self:getBytes(1)
+							streamNumber = bit.band(streamNumber, 0x7F)
+							print("stream : " .. tostring(streamNumber))
+							local mediaObjectNumber = self:getBytes(mediaObjectNumberLengthType)
+							local offsetIntoMediaObject = self:getBytes(offsetIntoMediaObjectLengthType)
+							local replicatedDataLength = self:getBytes(replicatedDataLengthType)
+
+							-- replicated data
+							self.source:seek(replicatedDataLength)
+
+							-- payload data
+							
+							offset = offset
+								+ 1
+								+ mediaObjectNumberLengthType
+								+ offsetIntoMediaObjectLengthType
+								+ replicatedDataLengthType
+								+ replicatedDataLength
+						end
+						self.source:seek(packetLength - offset)
+					else
+						loge("opaque data")
+					end
+				end
 				parsed = true
 			end
 
@@ -116,12 +209,45 @@ do
 				self.source:seek(size - 74)
 				parsed = true
 			end
+
 			if GUIDTypes[guid] == "codec list" then
 				self.source:seek(16)
-				
-				
-				
-				self.source:seek(size - 40)
+
+				local entries = self:getBytes(4)
+				for val = 1,entries do
+					local codecType = self:getBytes(2)
+					local codecNameLength = self:getBytes(2)
+					local codecNameWChar = self.source:read(codecNameLength*2)
+					local codecName = ""
+					for ind = 1, codecNameLength*2 do
+						if string.byte(codecNameWChar, ind) ~= 0 then
+							codecName = codecName .. string.char(string.byte(codecNameWChar, ind))
+						end
+					end
+					if verbose >= 1 then
+						logi(codecName)
+					end
+
+					self.codecs[
+						codecTypes[codecType] or 0
+					] = codecName
+
+					self.content = "vc1"
+
+					self.source:seek(self:getBytes(2)*2)
+					self.source:seek(self:getBytes(2))
+				end
+
+				parsed = true
+			end
+
+			if GUIDTypes[guid] == "file properties" then
+				self.source:seek(68)
+				self.minPacket = self:getBytes(4)
+				if verbose >= 2 then
+					print("minimum packet length : " .. tostring(self.minPacket))
+				end
+				self.source:seek(8)
 				parsed = true
 			end
 		end
