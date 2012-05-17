@@ -46,7 +46,10 @@ do
 	}
 
 	function wmv:read(sample)
-		
+		if sample <= self.framescount then
+			self.source:seek(self.frames[sample])
+			return self.source.fh
+		end
 	end
 
 	function wmv:getBytes(bytes)
