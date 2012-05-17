@@ -4,6 +4,8 @@ do
 	local wmv = {
 		streams = {},
 		codecs = {},
+		frames = {},
+		framescount = 1,
 	}
 
 	local codecTypes = {"video", "audio"}
@@ -173,6 +175,7 @@ do
 
 								if compressedPayload then
 									presentationTime = offsetIntoMediaObject
+									offsetIntoMediaObject = 0
 									local presentationTimeDelta = self:getBytes(1)
 									offset = offset + 1
 								else
@@ -189,13 +192,21 @@ do
 										local subPayloadData = self:getBytes(1)
 										subOffset = subOffset + 1
 										-- GET DATA HERE
-										
+										if streamNumber == self.streams.video
+											and offsetIntoMediaObject == 0 then
+											self.frames[self.framescount] = self.source:seek()
+											self.framescount = self.framescount + 1
+										end
 										self.source:seek(subPayloadData)
 										subOffset = subOffset + subPayloadData
 									end
 								else
 									-- GET DATA HERE
-									
+									if streamNumber == self.streams.video
+										and offsetIntoMediaObject == 0 then
+										self.frames[self.framescount] = self.source:seek()
+										self.framescount = self.framescount + 1
+									end
 									self.source:seek(payloadLength)
 								end
 
@@ -252,14 +263,22 @@ do
 									local subPayloadData = self:getBytes(1)
 									subOffset = subOffset + 1
 									-- GET DATA HERE
-									
+									if streamNumber == self.streams.video
+										and offsetIntoMediaObject == 0 then
+										self.frames[self.framescount] = self.source:seek()
+										self.framescount = self.framescount + 1
+									end
 									self.source:seek(subPayloadData)
 									subOffset = subOffset + subPayloadData
 								end
 								offset = offset + subOffset
 							else
 								-- GET DATA HERE
-								
+								if streamNumber == self.streams.video
+									and offsetIntoMediaObject == 0 then
+									self.frames[self.framescount] = self.source:seek()
+									self.framescount = self.framescount + 1
+								end
 							end
 
 							if streamNumber == self.streams.video

@@ -20,8 +20,12 @@ do
 	end
 
 	function file:seek(bytes)
-		if self.fh and bytes ~= 0 then
-			self:read(bytes)
+		if self.fh then
+			if bytes and bytes ~= 0 then
+				self:read(bytes)
+			else
+				return self.fh:seek()
+			end
 		end
 	end
 
