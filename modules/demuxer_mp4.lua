@@ -15,6 +15,16 @@ do
 		}
 	}
 
+	function mp4:skipBytes(bytes, state)
+		state.offset = state.offset + bytes
+		return self.source:seek(bytes)
+	end
+
+	function mp4:getBytes(bytes, state)
+		state.offset = state.offset + bytes
+		return self.source:read(bytes)
+	end
+
 	function mp4:read(sample)
 		-- must be an iterator
 		if self.samplesCount
@@ -75,9 +85,11 @@ do
 		self.source:close()
 	end
 
-	function mp4:parseChunk(level)
-		local size = convertToSize(self.source:read(4))
-		local atom = self.source:read(4)
+	function mp4:parseChunk(parseState)
+		parseState.offset = 0
+		local size = convertToSize(self:getBytes(4, parseState))
+		parseState.sizes[parseState.level] = size
+		local atom = self:getBytes(4, parseState)
 		if not size or not atom then
 			return false
 		end
@@ -89,133 +101,121 @@ do
 
 			local parsed = false
 			if atom == "mdhd" then
-				self.source:seek(12)
-				self.timescale = convertToSize(self.source:read(4))
-				self.source:seek(8)
+				self:skipBytes(12, parseState)
+				self.timescale = convertToSize(self:getBytes(4, parseState))
+				self:skipBytes(8, parseState)
 				parsed = true
 			end
 			if atom == "stsd" then
-				self.source:seek(8) -- go to mp4v/avc1
+				self:skipBytes(8, parseState)
 				parsed = true
 			end
 			if atom == "esds" then
-				self.source:seek(4) -- version and flags
-				local offset = 8 + 4
-				local esdsType = convertToSize(self.source:read(1))
-				offset = offset + 1
+				self:skipBytes(4, parseState)
+				local esdsType = convertToSize(self:getBytes(1, parseState))
 				if (esdsType == 0x03) then
 					local nextByte
 					repeat
-						nextByte = convertToSize(self.source:read(1))
-						offset = offset + 1
+						nextByte = convertToSize(self:getBytes(1, parseState))
 					until bit.band(nextByte, 0x80) == 0
-					self.source:seek(2) -- skip ID
-					offset = offset + 2
+					self:skipBytes(2, parseState)
 
-					local esFlags = convertToSize(self.source:read(1))
-					offset = offset + 1
+					local esFlags = convertToSize(self:getBytes(1, parseState))
 					local streamDependenceFlag = bit.band(esFlags, 0x80)
 					local urlFlag = bit.band(esFlags, 0x40)
 					local OCRStreamFlag = bit.band(esFlags, 0x20)
 
 					if streamDependenceFlag ~= 0 then
-						self.source:seek(2)
-						offset = offset + 2
+						self:skipBytes(2, parseState)
 					end
 
 					if urlFlag ~= 0 then
-						local urlLength = convertToSize(self.source:read(4))
-						self.source:seek(urlLength + 1)
-						offset = offset + urlLength + 1 + 4
+						local urlLength = convertToSize(self:getBytes(4, parseState))
+						self:skipBytes(urlLength + 1, parseState)
 					end
 
 					if OCRStreamFlag ~= 0 then
-						self.source:seek(2)
-						offset = offset + 2
+						self:skipBytes(2, parseState)
 					end
 
-					esdsType = convertToSize(self.source:read(1))
-					offset = offset + 1
+					esdsType = convertToSize(self:getBytes(1, parseState))
 				end
 				if (esdsType == 0x04) then
 					repeat
-						nextByte = convertToSize(self.source:read(1))
-						offset = offset + 1
+						nextByte = convertToSize(self:getBytes(1, parseState))
 					until bit.band(nextByte, 0x80) == 0
-					local objTypeID = convertToSize(self.source:read(1))
-					offset = offset + 1
+					local objTypeID = convertToSize(self:getBytes(1, parseState))
 					if objTypeID >= 0x60 and objTypeID <= 0x65 then
 						self.content = "mpeg2"
 					end
 				end
 				
-				self.source:seek(size - offset)
+				self:skipBytes(size - parseState.offset, parseState)
 				parsed = true
 			end
 			if atom == "mp4v" then
 				self.content = "mpeg4"
 				sampleTableParsing = true
-				self.source:seek(78)
+				self:skipBytes(78, parseState)
 				parsed = true
 			end
 			if atom == "avc1" then
 				self.content = "avc"
 				sampleTableParsing = true
-				self.source:seek(78) -- go to avcC
+				self:skipBytes(78, parseState)
 				parsed = true
 			end
 			if atom == "avcC" then
-				self.source:seek(4)
-				self.nalLength = 1 + bit.band(convertToSize(self.source:read(1)), 3)
-				self.source:seek(size - 13)
+				self:skipBytes(4, parseState)
+				self.nalLength = 1 + bit.band(convertToSize(self:getBytes(1, parseState)), 3)
+				self:skipBytes(size - 13, parseState)
 				parsed = true
 			end
 			if sampleTableParsing then
 				if atom == "stsz" and size > 20 then
 					-- sample sizes
-					self.source:seek(4) -- flags and version
-					self.source:seek(4) -- sample size, usually 0
-					self.samplesCount = convertToSize(self.source:read(4))
+					self:skipBytes(8, parseState)
+					self.samplesCount = convertToSize(self:getBytes(4, parseState))
 					for var = 1, self.samplesCount do
-						self.sampleTable.sampleSizes[var] = convertToSize(self.source:read(4))
+						self.sampleTable.sampleSizes[var] = convertToSize(self:getBytes(4, parseState))
 					end
 					parsed = true
 				end
 				if atom == "stsc" then
 					-- sample to chunks entries
-					self.source:seek(4)
-					local entries = convertToSize(self.source:read(4))
+					self:skipBytes(4, parseState)
+					local entries = convertToSize(self:getBytes(4, parseState))
 					for var = 1, entries do
 						self.sampleTable.chunks[var] = {
-							firstChunk = convertToSize(self.source:read(4)),
-							samplesPerChunk = convertToSize(self.source:read(4)),
+							firstChunk = convertToSize(self:getBytes(4, parseState)),
+							samplesPerChunk = convertToSize(self:getBytes(4, parseState)),
 						}
-						self.source:read(4)
+						self:skipBytes(4, parseState)
 					end
 					parsed = true
 				end
 				if atom == "stco" or atom == "co64" then
 					-- sample to chunks offset
-					self.source:seek(4)
-					local entries = convertToSize(self.source:read(4))
+					self:skipBytes(4, parseState)
+					local entries = convertToSize(self:getBytes(4, parseState))
 					for var = 1, entries do
 						local offset
 						if atom == "stco" then
-							offset = convertToSize(self.source:read(4))
+							offset = convertToSize(self:getBytes(4, parseState))
 						else
-							offset = convertToSize(self.source:read(8))
+							offset = convertToSize(self:getBytes(8, parseState))
 						end
 						self.sampleTable.chunkOffsets[var] = offset
 					end
 					parsed = true
 				end
 				if atom == "stts" then
-					self.source:seek(4)
-					local entries = convertToSize(self.source:read(4))
+					self:skipBytes(4, parseState)
+					local entries = convertToSize(self:getBytes(4, parseState))
 					local currentTime = 0
 					for var = 1, entries do
-						local samplesCount = convertToSize(self.source:read(4))
-						local samplesDuration = convertToSize(self.source:read(4))
+						local samplesCount = convertToSize(self:getBytes(4, parseState))
+						local samplesDuration = convertToSize(self:getBytes(4, parseState))
 						local sampleDuration = samplesDuration*1000000/self.timescale
 						for s = 1, samplesCount do
 							self.sampleTable.sampleTimes[s] = currentTime
@@ -226,23 +226,38 @@ do
 				end
 			end
 			if not parsed then
-				self.source:seek(size - 8)
+				self:skipBytes(size - 8, parseState)
 			end
 		end
 		if atom == "stbl" then
 			sampleTableParsing = false
 		end
 		if verbose >= 1 then
-			print(level, atom, size)
+			print(string.rep("  ", parseState.level) .. " " .. tostring(atom) .. " : " .. tostring(size))
 		end
-		
-		return self:parseChunk(level)
+
+		for val = 1, parseState.level do
+			if not parseState.offsets[val] then
+				parseState.offsets[val] = 0
+			end
+			parseState.offsets[val] = parseState.offsets[val] + parseState.offset
+		end
+		while parseState.level > 1
+			and parseState.offsets[parseState.level] == parseState.sizes[parseState.level] do
+			parseState.level = parseState.level - 1
+		end
+		if parseState.offset < parseState.sizes[parseState.level] then
+			parseState.level = parseState.level + 1
+			parseState.offsets[parseState.level] = 0
+		end
+
+		return self:parseChunk(parseState)
 	end
 
 	function mp4:parse()
 		self.level = 1
 		self.source:open()
-		self:parseChunk(0)
+		self:parseChunk({ level = 1 , offset = 0, offsets = {}, sizes = {}, })
 		self.source:close()
 	end
 
