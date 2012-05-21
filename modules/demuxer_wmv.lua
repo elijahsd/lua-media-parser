@@ -7,6 +7,7 @@ do
 		frames = {},
 		frameSizes = {},
 		framescount = 1,
+		currentPayloadSize = 0,
 	}
 
 	local codecTypes = {"video", "audio"}
@@ -199,7 +200,12 @@ do
 										if streamNumber == self.streams.video
 											and offsetIntoMediaObject == 0 then
 											self.frames[self.framescount] = self.source:seek()
+											self.frameSizes[self.framescount] = self.currentPayloadSize or 0
 											self.framescount = self.framescount + 1
+										end
+										if streamNumber == self.streams.video
+											and offsetIntoMediaObject ~= 0 then
+											self.currentPayloadSize = 0 -- TODO
 										end
 										self.source:seek(subPayloadData)
 										subOffset = subOffset + subPayloadData
@@ -209,7 +215,12 @@ do
 									if streamNumber == self.streams.video
 										and offsetIntoMediaObject == 0 then
 										self.frames[self.framescount] = self.source:seek()
+										self.frameSizes[self.framescount] = self.currentPayloadSize or 0
 										self.framescount = self.framescount + 1
+									end
+									if streamNumber == self.streams.video
+										and offsetIntoMediaObject ~= 0 then
+										self.currentPayloadSize = 0 -- TODO
 									end
 									self.source:seek(payloadLength)
 								end
@@ -270,7 +281,12 @@ do
 									if streamNumber == self.streams.video
 										and offsetIntoMediaObject == 0 then
 										self.frames[self.framescount] = self.source:seek()
+										self.frameSizes[self.framescount] = self.currentPayloadSize or 0
 										self.framescount = self.framescount + 1
+									end
+									if streamNumber == self.streams.video
+										and offsetIntoMediaObject ~= 0 then
+										self.currentPayloadSize = 0 -- TODO
 									end
 									self.source:seek(subPayloadData)
 									subOffset = subOffset + subPayloadData
@@ -281,7 +297,12 @@ do
 								if streamNumber == self.streams.video
 									and offsetIntoMediaObject == 0 then
 									self.frames[self.framescount] = self.source:seek()
+									self.frameSizes[self.framescount] = self.currentPayloadSize or 0
 									self.framescount = self.framescount + 1
+								end
+								if streamNumber == self.streams.video
+									and offsetIntoMediaObject ~= 0 then
+									self.currentPayloadSize = 0 -- TODO
 								end
 							end
 
