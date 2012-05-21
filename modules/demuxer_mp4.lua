@@ -93,22 +93,19 @@ do
 		if not size or not atom then
 			return false
 		end
+
 		if atom ~= "moov"
 			and atom ~= "trak"
 			and atom ~= "mdia"
 			and atom ~= "minf"
-			and atom ~= "stbl" then
+			and atom ~= "stbl"
+			and atom ~= "stsd"
+			and atom ~= "avc1" then
 
-			local parsed = false
 			if atom == "mdhd" then
 				self:skipBytes(12, parseState)
 				self.timescale = convertToSize(self:getBytes(4, parseState))
 				self:skipBytes(8, parseState)
-				parsed = true
-			end
-			if atom == "stsd" then
-				self:skipBytes(8, parseState)
-				parsed = true
 			end
 			if atom == "esds" then
 				self:skipBytes(4, parseState)
@@ -151,25 +148,14 @@ do
 				end
 				
 				self:skipBytes(size - parseState.offset, parseState)
-				parsed = true
 			end
 			if atom == "mp4v" then
 				self.content = "mpeg4"
 				sampleTableParsing = true
-				self:skipBytes(78, parseState)
-				parsed = true
-			end
-			if atom == "avc1" then
-				self.content = "avc"
-				sampleTableParsing = true
-				self:skipBytes(78, parseState)
-				parsed = true
 			end
 			if atom == "avcC" then
 				self:skipBytes(4, parseState)
 				self.nalLength = 1 + bit.band(convertToSize(self:getBytes(1, parseState)), 3)
-				self:skipBytes(size - 13, parseState)
-				parsed = true
 			end
 			if sampleTableParsing then
 				if atom == "stsz" and size > 20 then
@@ -179,7 +165,6 @@ do
 					for var = 1, self.samplesCount do
 						self.sampleTable.sampleSizes[var] = convertToSize(self:getBytes(4, parseState))
 					end
-					parsed = true
 				end
 				if atom == "stsc" then
 					-- sample to chunks entries
@@ -192,7 +177,6 @@ do
 						}
 						self:skipBytes(4, parseState)
 					end
-					parsed = true
 				end
 				if atom == "stco" or atom == "co64" then
 					-- sample to chunks offset
@@ -207,7 +191,6 @@ do
 						end
 						self.sampleTable.chunkOffsets[var] = offset
 					end
-					parsed = true
 				end
 				if atom == "stts" then
 					self:skipBytes(4, parseState)
@@ -222,16 +205,28 @@ do
 							currentTime = currentTime + sampleDuration
 						end
 					end
-					parsed = true
+				end
+				if atom == "ctts" then
+					
 				end
 			end
-			if not parsed then
-				self:skipBytes(size - 8, parseState)
+			self:skipBytes(size - parseState.offset, parseState)
+		else
+			if atom == "stbl" then
+				sampleTableParsing = false
+			end
+
+			if atom == "stsd" then
+				self:skipBytes(8, parseState)
+			end
+
+			if atom == "avc1" then
+				self.content = "avc"
+				sampleTableParsing = true
+				self:skipBytes(78, parseState)
 			end
 		end
-		if atom == "stbl" then
-			sampleTableParsing = false
-		end
+
 		if verbose >= 1 then
 			print(string.rep("  ", parseState.level) .. " " .. tostring(atom) .. " : " .. tostring(size))
 		end
