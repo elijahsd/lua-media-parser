@@ -5,6 +5,7 @@ do
 		streams = {},
 		codecs = {},
 		frames = {},
+		frameSizes = {},
 		framescount = 1,
 	}
 
@@ -48,7 +49,7 @@ do
 	function wmv:read(sample)
 		if sample <= self.framescount then
 			self.source:seek(self.frames[sample])
-			return self.source.fh
+			return self.source.fh, (" " .. tostring(self.frameSizes[sample]) .. " bytes")
 		end
 	end
 
