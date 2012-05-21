@@ -85,6 +85,23 @@ do
 		self.source:close()
 	end
 
+	function mp4:adjustParseState(parseState)
+		for val = 1, parseState.level do
+			if not parseState.offsets[val] then
+				parseState.offsets[val] = 0
+			end
+			parseState.offsets[val] = parseState.offsets[val] + parseState.offset
+		end
+		while parseState.level > 1
+			and parseState.offsets[parseState.level] == parseState.sizes[parseState.level] do
+			parseState.level = parseState.level - 1
+		end
+		if parseState.offset < parseState.sizes[parseState.level] then
+			parseState.level = parseState.level + 1
+			parseState.offsets[parseState.level] = 0
+		end
+	end
+
 	function mp4:parseChunk(parseState)
 		parseState.offset = 0
 		local size = convertToSize(self:getBytes(4, parseState))
@@ -231,20 +248,7 @@ do
 			print(string.rep("  ", parseState.level) .. " " .. tostring(atom) .. " : " .. tostring(size))
 		end
 
-		for val = 1, parseState.level do
-			if not parseState.offsets[val] then
-				parseState.offsets[val] = 0
-			end
-			parseState.offsets[val] = parseState.offsets[val] + parseState.offset
-		end
-		while parseState.level > 1
-			and parseState.offsets[parseState.level] == parseState.sizes[parseState.level] do
-			parseState.level = parseState.level - 1
-		end
-		if parseState.offset < parseState.sizes[parseState.level] then
-			parseState.level = parseState.level + 1
-			parseState.offsets[parseState.level] = 0
-		end
+		self:adjustParseState(parseState)
 
 		return self:parseChunk(parseState)
 	end
