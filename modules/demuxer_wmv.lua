@@ -8,9 +8,21 @@ do
 		frameSizes = {},
 		framescount = 1,
 		currentPayloadSize = 0,
+		codecID = "",
+		profile = "",
+		level = "",
+		maxB = 0,
+		rangered = 0,
+		finterpflag = 0,
 	}
 
 	local codecTypes = {"video", "audio"}
+	local profileTypes = {
+		[0] = "simple",
+		"main",
+		"complex",
+		"advanced",
+	}
 
 	local GUIDTypes = {
 		-- top GUIDs
@@ -351,7 +363,42 @@ do
 					GUIDTypes[streamType]
 					] = streamNumber
 
-				self.source:seek(size - 74)
+				self.source:seek(4)
+
+				if GUIDTypes[streamType] ~= "video" then
+					self.source:seek(size - 78)
+				else
+					-- Specific Data Start
+					self.source:seek(15)
+					local BIHWidth = self:getBytes(4)
+					local BIHHeight = self:getBytes(4)
+					logi("Size : " .. tostring(BIHWidth) .. "x" .. tostring(BIHHeight))
+					self.source:seek(4)
+					self.codecID = self.source:read(4)
+					logi("Compression ID : " .. self.codecID)
+
+					if self.codecID == "WMV3" then
+						self.advanced = false
+						self.content = "vc1"
+					end
+					if self.codecID == "WVC1" then
+						self.advanced = true
+						self.content = "vc1"
+					end
+
+					-- go to sequence
+					local offset = 0
+					if not self.advanced then
+						self.source:seek(23)
+						local flags = self:getBytes(1)
+						self.maxB = bit.blogic_rshift(bit.band(flags, 0x70), 4)
+						self.rangered = bit.blogic_rshift(bit.band(flags, 0x80), 7)
+						self.finterpflag = bit.blogic_rshift(bit.band(flags, 0x02), 1)
+						logi("Max B Frames : " .. tostring(self.maxB))
+						offset = 24
+					end
+					self.source:seek(size - 109 - offset)
+				end
 				parsed = true
 			end
 
@@ -369,18 +416,30 @@ do
 							codecName = codecName .. string.char(string.byte(codecNameWChar, ind))
 						end
 					end
-					if verbose >= 1 then
-						logi(codecName)
+
+					local codecDescriptionLength = self:getBytes(2)
+					local codecDescriptionWChar = self.source:read(codecDescriptionLength*2)
+					local codecDescription = ""
+					for ind = 1, codecDescriptionLength*2 do
+						if string.byte(codecDescriptionWChar, ind) ~= 0 then
+							codecDescription = codecDescription .. string.char(string.byte(codecDescriptionWChar, ind))
+						end
 					end
+
+					if verbose >= 1 then
+						logi(codecTypes[codecType]
+							.. " : "
+							.. codecName
+							.. " : "
+							.. codecDescription)
+					end
+
+					self.source:seek(self:getBytes(2))
 
 					self.codecs[
 						codecTypes[codecType] or 0
 					] = codecName
 
-					self.content = "vc1"
-
-					self.source:seek(self:getBytes(2)*2)
-					self.source:seek(self:getBytes(2))
 				end
 
 				parsed = true
