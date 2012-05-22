@@ -81,22 +81,6 @@ do
 			end
 			result.description = frameTypesAdvanced[signs]
 		end
-		
-		--[[
-		print(
-			string.format(
-				"%02X %02X %02X %02X %02X %02X %02X %02X ",
-				convertToSize(framepointer:read(1)),
-				convertToSize(framepointer:read(1)),
-				convertToSize(framepointer:read(1)),
-				convertToSize(framepointer:read(1)),
-				convertToSize(framepointer:read(1)),
-				convertToSize(framepointer:read(1)),
-				convertToSize(framepointer:read(1)),
-				convertToSize(framepointer:read(1))
-			)
-		)
-		]]--
 
 		self.source:close()
 		return result

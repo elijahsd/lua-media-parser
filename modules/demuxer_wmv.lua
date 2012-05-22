@@ -96,8 +96,8 @@ do
 		-- 8 bytes size in le
 		local size = self:getBytes(8)
 
-		if verbose >= 2 then
-			print(tostring(GUIDTypes[guid]) .. " : " .. tostring(level) .. " : " .. size)
+		if verbose >= 1 then
+			logi(tostring(GUIDTypes[guid]) .. " : " .. tostring(level) .. " : " .. size)
 		end
 
 		if level == 0 then
@@ -238,8 +238,11 @@ do
 								end
 
 								if streamNumber == self.streams.video
-									and verbose >= 2 then
-									print("packet size : "
+									and verbose >= 3 then
+									if offsetIntoMediaObject == 0 then
+										logi("Frame start")
+									end
+									logi("packet size : "
 										.. tostring(packetLength)
 										.. " payload data size : "
 										.. tostring(payloadLength)
@@ -319,8 +322,11 @@ do
 							end
 
 							if streamNumber == self.streams.video
-								and verbose >= 2 then
-								print("packet size : "
+								and verbose >= 3 then
+								if offsetIntoMediaObject == 0 then
+									logi("Frame start")
+								end
+								logi("packet size : "
 									.. tostring(packetLength)
 									.. " payload data size : "
 									.. tostring(packetLength - offset - replicatedDataLength)
@@ -356,7 +362,7 @@ do
 				local streamNumber = bit.band(flags, 0x7F)
 
 				if verbose >= 1 then
-					print("stream type = " .. GUIDTypes[streamType] .. " : " .. tostring(streamNumber))
+					logi("stream type = " .. GUIDTypes[streamType] .. " : " .. tostring(streamNumber))
 				end
 
 				self.streams[
@@ -394,7 +400,9 @@ do
 						self.maxB = bit.blogic_rshift(bit.band(flags, 0x70), 4)
 						self.rangered = bit.blogic_rshift(bit.band(flags, 0x80), 7)
 						self.finterpflag = bit.blogic_rshift(bit.band(flags, 0x02), 1)
-						logi("Max B Frames : " .. tostring(self.maxB))
+						if verbose >= 2 then
+							logi("Max B Frames : " .. tostring(self.maxB))
+						end
 						offset = 24
 					end
 					self.source:seek(size - 109 - offset)
@@ -449,7 +457,7 @@ do
 				self.source:seek(68)
 				self.minPacket = self:getBytes(4)
 				if verbose >= 2 then
-					print("minimum packet length : " .. tostring(self.minPacket))
+					logi("minimum packet length : " .. tostring(self.minPacket))
 				end
 				self.source:seek(8)
 				parsed = true

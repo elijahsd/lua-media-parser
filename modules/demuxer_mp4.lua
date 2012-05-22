@@ -61,7 +61,7 @@ do
 			end
 			local fullOffset = chunkOffset + offsetInChunk
 			self.source:seek(fullOffset)
-			if verbose >= 2 then
+			if verbose >= 3 then
 				logi("offset :" .. tostring(fullOffset))
 			end
 			extradata = " "
@@ -245,7 +245,7 @@ do
 		end
 
 		if verbose >= 1 then
-			print(string.rep("  ", parseState.level) .. " " .. tostring(atom) .. " : " .. tostring(size))
+			logi(string.rep("  ", parseState.level) .. " " .. tostring(atom) .. " : " .. tostring(size))
 		end
 
 		self:adjustParseState(parseState)
