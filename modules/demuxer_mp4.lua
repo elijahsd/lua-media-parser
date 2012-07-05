@@ -216,8 +216,8 @@ do
 					for var = 1, entries do
 						local samplesCount = convertToSize(self:getBytes(4, parseState))
 						local samplesDuration = convertToSize(self:getBytes(4, parseState))
-						local sampleDuration = samplesDuration*1000000/self.timescale
-						for s = 1, samplesCount do
+						local sampleDuration = samplesDuration*(1000000/self.timescale)
+						for s = var, var + samplesCount do
 							self.sampleTable.sampleTimes[s] = currentTime
 							currentTime = currentTime + sampleDuration
 						end
