@@ -66,10 +66,12 @@ do
 			end
 			extradata = " "
 				.. (self.sampleTable.sampleTimes[sample]
-					and math.floor(self.sampleTable.sampleTimes[sample])
+					and (math.floor(self.sampleTable.sampleTimes[sample])
+						+ (self.sampleTable.sampleDeltaTimes[sample] or 0))
 					or "undefined")
-				.. " + "
-				.. (self.sampleTable.sampleDeltaTimes[sample] or "0")
+				.. (self.sampleTable.sampleDeltaTimes[sample]
+					and " (shift " .. self.sampleTable.sampleDeltaTimes[sample] .. ")"
+					or "")
 				.. " usec "
 				.. self.sampleTable.sampleSizes[sample]
 				.. " bytes "
@@ -224,7 +226,17 @@ do
 					end
 				end
 				if atom == "ctts" then
-					
+					self:skipBytes(4, parseState)
+					local entries = convertToSize(self:getBytes(4, parseState))
+					local current = 1
+					for var = 1, entries do
+						local samplesCount = convertToSize(self:getBytes(4, parseState))
+						local samplesDelta = convertToSize(self:getBytes(4, parseState))
+						for s = 1, samplesCount do
+							self.sampleTable.sampleDeltaTimes[current] = samplesDelta
+							current = current + 1
+						end
+					end
 				end
 			end
 			self:skipBytes(size - parseState.offset, parseState)
