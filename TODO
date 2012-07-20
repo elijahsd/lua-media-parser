@@ -2,3 +2,4 @@ VC1: interlaced support
 MP4: ctts support
 VC1: code refactoring
 AVI: inital parsing
+MKV: inital parsing
