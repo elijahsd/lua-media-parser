@@ -10,6 +10,7 @@ do
 			sampleSizes = {},
 			sampleTimes = {},
 			sampleDeltaTimes = {},
+			syncSamples = {},
 			chunks = {},
 			chunkOffsets = {},
 		}
@@ -73,7 +74,12 @@ do
 				.. " usec "
 				.. "\t"
 				.. self.sampleTable.sampleSizes[sample]
-				.. "bytes "
+				.. " bytes "
+				.. "\t"
+			if self.sampleTable.syncSamples[sample] ~= nil then
+				extradata = extradata
+					.. "SYNC"
+			end
 			if verbose >= 3 then
 				extradata = extradata
 					.. "\t"
@@ -181,6 +187,12 @@ do
 				self.nalLength = 1 + bit.band(convertToSize(self:getBytes(1, parseState)), 3)
 			end
 			if sampleTableParsing then
+				if atom == "stss" then
+					self:skipBytes(4, parseState)
+					for var = 1, convertToSize(self:getBytes(4, parseState)) do
+						self.sampleTable.syncSamples[convertToSize(self:getBytes(4, parseState))] = true
+					end
+				end
 				if atom == "stsz" and size > 20 then
 					-- sample sizes
 					self:skipBytes(8, parseState)
