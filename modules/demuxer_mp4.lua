@@ -61,10 +61,8 @@ do
 			end
 			local fullOffset = chunkOffset + offsetInChunk
 			self.source:seek(fullOffset)
-			if verbose >= 3 then
-				logi("offset :" .. tostring(fullOffset))
-			end
 			extradata = " "
+				.. "\t"
 				.. (self.sampleTable.sampleTimes[sample]
 					and (math.floor(self.sampleTable.sampleTimes[sample])
 						+ (self.sampleTable.sampleDeltaTimes[sample] or 0))
@@ -73,8 +71,14 @@ do
 					and " (shift " .. self.sampleTable.sampleDeltaTimes[sample] .. ")"
 					or "")
 				.. " usec "
+				.. "\t"
 				.. self.sampleTable.sampleSizes[sample]
-				.. " bytes "
+				.. "bytes "
+			if verbose >= 3 then
+				extradata = extradata
+					.. "\t"
+					.. "offset :" .. tostring(fullOffset)
+			end
 			return self.source.fh, extradata
 		end
 	end
